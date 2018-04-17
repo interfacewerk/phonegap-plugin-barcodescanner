@@ -1107,6 +1107,12 @@ parentViewController:(UIViewController*)parentViewController
     blurEffectView.frame = self.view.bounds;
     blurEffectView.alpha = 0.7;
     blurEffectView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+        blurEffectView.contentMode      = UIViewContentModeScaleAspectFit;
+    //    reticleView.autoresizingMask = (UIViewAutoresizing) (0
+    //        | UIViewAutoresizingFlexibleLeftMargin
+    //        | UIViewAutoresizingFlexibleRightMargin
+    //        | UIViewAutoresizingFlexibleTopMargin
+    //        | UIViewAutoresizingFlexibleBottomMargin)
 
     //Create Mask
     CGPoint superCenter = CGPointMake(CGRectGetMidX(blurEffectView.bounds), CGRectGetMidY(blurEffectView.bounds)*0.85);
@@ -1125,7 +1131,7 @@ parentViewController:(UIViewController*)parentViewController
     [self.view addSubview:blurEffectView]; //if you have more UIViews, use an insertSubview API to place it where needed
 
     //Create default Font
-    UIFont *font = [UIFont fontWithName: @"Trebuchet MS" size: 14.0f];
+    UIFont *font = [UIFont systemFontOfSize: 14.0f];
 
     // Create Lables
     // bottom
@@ -1210,12 +1216,10 @@ parentViewController:(UIViewController*)parentViewController
     [[UINavigationBar appearance] setShadowImage:[UIImage new]];
     [[UINavigationBar appearance] setTranslucent:YES];
     [[UINavigationBar appearance] setTintColor:[UIColor whiteColor]]; // for titles, buttons, etc.
-//    [[UINavigationBar appearance] setTitleTextAttributes:[NSForegroundColorAttributeName: [UIColor whiteColor] , NSFontAttributeName: font!]];
     [[UINavigationBar appearance] setTitleTextAttributes:@{NSForegroundColorAttributeName : [UIColor whiteColor]}];
 
-    UIBarButtonItem *backButton = [[[UIBarButtonItem alloc] initWithTitle:@"‹back" style:UIBarButtonItemStylePlain target:self action:@selector(cancelButtonPressed:)] autorelease];
+    UIBarButtonItem *backButton = [[[UIBarButtonItem alloc] initWithTitle:@"❮Back" style:UIBarButtonItemStylePlain target:self action:@selector(cancelButtonPressed:)] autorelease];
     navItem.leftBarButtonItem = backButton;
-    navItem.hidesBackButton = NO;
     [navbar setItems:@[navItem]];
 
     [overlayView addSubview:navbar];
