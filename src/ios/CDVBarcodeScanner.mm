@@ -76,6 +76,7 @@
 - (id)initWithPlugin:(CDVBarcodeScanner*)plugin callback:(NSString*)callback parentViewController:(UIViewController*)parentViewController alterateOverlayXib:(NSString *)alternateXib;
 - (void)scanBarcode;
 - (void)barcodeScanSucceeded:(NSString*)text format:(NSString*)format;
+- (void)showBarcodeScanErrorInScanner:(NSString*)message;
 - (void)barcodeScanFailed:(NSString*)message;
 - (void)barcodeScanCancelled;
 - (void)openDialog;
@@ -109,6 +110,9 @@
 @property (nonatomic, retain) NSString*        alternateXib;
 @property (nonatomic)         BOOL             shutterPressed;
 @property (nonatomic, retain) IBOutlet UIView* overlayView;
+@property (nonatomic, retain) UIVisualEffectView* blurEffectView;
+@property (nonatomic, retain) UILabel* errorText;
+@property (nonatomic, retain) UILabel* errorTextHeadline;
 // unsafe_unretained is equivalent to assign - used to prevent retain cycles in the property below
 @property (nonatomic, unsafe_unretained) id orientationDelegate;
 
@@ -412,9 +416,79 @@ parentViewController:(UIViewController*)parentViewController
         if (self.isSuccessBeepEnabled) {
             AudioServicesPlaySystemSound(_soundFileObject);
         }
-        [self barcodeScanDone:^{
-            [self.plugin returnSuccess:text format:format cancelled:FALSE flipped:FALSE callback:self.callback];
-        }];
+        if(NSClassFromString(@"NSJSONSerialization"))
+        {
+            NSError *error = nil;
+            NSData* jsonData = [text dataUsingEncoding:NSUTF8StringEncoding];
+
+            id object = [NSJSONSerialization
+                         JSONObjectWithData:jsonData
+                         options:0
+                         error:&error];
+
+            if(error) { /* JSON was malformed, act appropriately here */
+                [self showBarcodeScanErrorInScanner:@"JSON malformed"];
+            }
+
+            // the originating poster wants to deal with dictionaries;
+            // assuming you do too then something like this is the first
+            // validation step:
+            if([object isKindOfClass:[NSDictionary class]])
+            {
+                NSDictionary *results = object;
+                if( [results objectForKey:@"sessionToken"] == nil ){
+                    [self showBarcodeScanErrorInScanner:@"JSON malformed, session Token Missing"];
+                } else if ([results objectForKey:@"workflowId"] == nil ){
+                    [self showBarcodeScanErrorInScanner:@"JSON malformed, owrkflowid missing"];
+                }
+                else{
+                    [self barcodeScanDone:^{
+                        [self.plugin returnSuccess:text format:format cancelled:FALSE flipped:FALSE callback:self.callback];
+                    }];
+                }
+
+                /* proceed with results as you like; the assignment to
+                 an explicit NSDictionary * is artificial step to get
+                 compile-time checking from here on down (and better autocompletion
+                 when editing). You could have just made object an NSDictionary *
+                 in the first place but stylistically you might prefer to keep
+                 the question of type open until it's confirmed */
+            }
+            else
+            {
+//                [self barcodeScanFailed:@"JSON malformed"];
+                [self showBarcodeScanErrorInScanner:@"JSON malformed"];
+
+                /* there's no guarantee that the outermost object in a JSON
+                 packet will be a dictionary; if we get here then it wasn't,
+                 so 'object' shouldn't be treated as an NSDictionary; probably
+                 you need to report a suitable error condition */
+            }
+        }
+        else
+        {
+            // iOS4 or less, not supported
+            [self showBarcodeScanErrorInScanner:@"iOS Version not supported"];
+
+        }
+
+    });
+}
+
+- (void)showBarcodeScanErrorInScanner:(NSString*)message {
+    self.viewController.blurEffectView.alpha = 0.3;
+    self.viewController.blurEffectView.backgroundColor = [UIColor redColor];
+    self.viewController.errorText.alpha = 1.0;
+    self.viewController.errorTextHeadline.alpha = 1.0;
+    [self.viewController.view setNeedsDisplay];
+
+    dispatch_time_t delay = dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 4);
+    dispatch_after(delay, dispatch_get_main_queue(), ^(void){
+        self.viewController.blurEffectView.alpha = 0.7;
+        self.viewController.errorText.alpha = 0.0;
+        self.viewController.errorTextHeadline.alpha = 0.0;
+        self.viewController.blurEffectView.backgroundColor = [UIColor clearColor];
+        [self.viewController.view setNeedsDisplay];
     });
 }
 
@@ -981,106 +1055,6 @@ parentViewController:(UIViewController*)parentViewController
 
     self.view.backgroundColor = [UIColor clearColor];
 
-    // Create Blur Effect
-    UIBlurEffect *blurEffect = [UIBlurEffect effectWithStyle:UIBlurEffectStyleDark];
-    UIVisualEffectView *blurEffectView = [[UIVisualEffectView alloc] initWithEffect:blurEffect];
-    blurEffectView.frame = self.view.bounds;
-    blurEffectView.alpha = 0.7;
-    blurEffectView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-
-    //Create Mask
-    CGPoint superCenter = CGPointMake(CGRectGetMidX(blurEffectView.bounds), CGRectGetMidY(blurEffectView.bounds)*0.85);
-    int size = floor(blurEffectView.bounds.size.width * 0.7);
-    CGRect maskRect = CGRectMake(superCenter.x - size/2, superCenter.y - size/2, size, size);
-    UIBezierPath *maskPath = [UIBezierPath bezierPathWithRect:maskRect];
-    //invert path
-    [maskPath appendPath:[UIBezierPath bezierPathWithRect:blurEffectView.bounds]];
-    CAShapeLayer *fillLayer = [[CAShapeLayer alloc] init];
-    fillLayer.fillRule = kCAFillRuleEvenOdd;
-    fillLayer.fillColor = [UIColor greenColor].CGColor;
-    fillLayer.path = maskPath.CGPath;
-
-    // Add Blur Effect with Mask to view
-    blurEffectView.layer.mask = fillLayer;
-    [self.view addSubview:blurEffectView]; //if you have more UIViews, use an insertSubview API to place it where needed
-
-    //Create Font
-
-    UIFont *font = [UIFont fontWithName: @"Trebuchet MS" size: 14.0f];
-
-    // Create Lables
-    // bottom
-    int margin = 20;
-    UILabel *bottomLabel = [[UILabel alloc] init];
-    [bottomLabel setTextColor:[UIColor whiteColor]];
-    [bottomLabel setBackgroundColor:[UIColor clearColor]];
-    [bottomLabel setFont:font];
-    [bottomLabel setText:@"Scan Keyp QR Code"];
-    [bottomLabel sizeToFit];
-    [bottomLabel setCenter:CGPointMake(superCenter.x, superCenter.y + size/2 + margin)];
-    [self.view addSubview:bottomLabel];
-
-    //right
-    UILabel *rightLabel = [[UILabel alloc] init];
-    [rightLabel setTextColor:[UIColor whiteColor]];
-    [rightLabel setBackgroundColor:[UIColor clearColor]];
-    [rightLabel setFont:font];
-    [rightLabel setText:@"Scan Keyp QR Code"];
-    [rightLabel sizeToFit];
-    [rightLabel setTransform:CGAffineTransformMakeRotation(M_PI / 2)];
-    [rightLabel setCenter:CGPointMake(superCenter.x + size / 2 + margin , superCenter.y)];
-    [self.view addSubview:rightLabel];
-
-    //left
-    UILabel *leftLabel = [[UILabel alloc] init];
-    [leftLabel setTextColor:[UIColor whiteColor]];
-    [leftLabel setBackgroundColor:[UIColor clearColor]];
-    [leftLabel setFont:font];
-    [leftLabel setText:@"Scan Keyp QR Code"];
-    [leftLabel sizeToFit];
-    [leftLabel setTransform:CGAffineTransformMakeRotation(-M_PI / 2)];
-    [leftLabel setCenter:CGPointMake(superCenter.x - size / 2 - margin , superCenter.y)];
-    [self.view addSubview:leftLabel];
-
-    //Draw corners
-    double cornerMargin = margin * 2.0;
-    double cornerLength = 30.0;
-    UIBezierPath *path = [UIBezierPath bezierPath];
-
-    CGPoint topleft = CGPointMake(superCenter.x - size / 2 - cornerMargin , superCenter.y - size / 2 - cornerMargin);
-    [path moveToPoint:CGPointMake(topleft.x + cornerLength, topleft.y)];
-    [path addLineToPoint:topleft];
-    [path addLineToPoint:CGPointMake(topleft.x, topleft.y + cornerLength)];
-
-    CGPoint topRight = CGPointMake(superCenter.x + size / 2 + cornerMargin , superCenter.y - size / 2 - cornerMargin);
-    [path moveToPoint:CGPointMake(topRight.x - cornerLength, topRight.y)];
-    [path addLineToPoint:topRight];
-    [path addLineToPoint:CGPointMake(topRight.x, topRight.y + cornerLength)];
-
-    CGPoint bottomRight = CGPointMake(superCenter.x + size / 2 + cornerMargin , superCenter.y + size / 2 + cornerMargin);
-    [path moveToPoint:CGPointMake(bottomRight.x - cornerLength, bottomRight.y)];
-    [path addLineToPoint:bottomRight];
-    [path addLineToPoint:CGPointMake(bottomRight.x, bottomRight.y - cornerLength)];
-
-    CGPoint bottomLeft = CGPointMake(superCenter.x - size / 2 - cornerMargin , superCenter.y + size / 2 + cornerMargin);
-    [path moveToPoint:CGPointMake(bottomLeft.x + cornerLength, bottomLeft.y)];
-    [path addLineToPoint:bottomLeft];
-    [path addLineToPoint:CGPointMake(bottomLeft.x, bottomLeft.y - cornerLength)];
-
-    CAShapeLayer *shapeLayer = [CAShapeLayer layer];
-    shapeLayer.path = [path CGPath];
-    shapeLayer.strokeColor = [[UIColor whiteColor] CGColor];
-    shapeLayer.lineWidth = 3.0;
-    shapeLayer.fillColor = [[UIColor clearColor] CGColor];
-    [self.view.layer addSublayer:shapeLayer];
-
-
-    //Add Back Button
-
-
-
-
-
     return self.overlayView;
 }
 
@@ -1103,11 +1077,14 @@ parentViewController:(UIViewController*)parentViewController
 
     // Create Blur Effect
     UIBlurEffect *blurEffect = [UIBlurEffect effectWithStyle:UIBlurEffectStyleDark];
-    UIVisualEffectView *blurEffectView = [[UIVisualEffectView alloc] initWithEffect:blurEffect];
-    blurEffectView.frame = self.view.bounds;
-    blurEffectView.alpha = 0.7;
-    blurEffectView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-        blurEffectView.contentMode      = UIViewContentModeScaleAspectFit;
+    self.blurEffectView = [[UIVisualEffectView alloc] initWithEffect:blurEffect];
+    self.blurEffectView.frame = self.view.bounds;
+    self.blurEffectView.alpha = 0.7;
+    self.blurEffectView.backgroundColor = [UIColor clearColor];
+
+
+    self.blurEffectView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    self.blurEffectView.contentMode      = UIViewContentModeScaleAspectFit;
     //    reticleView.autoresizingMask = (UIViewAutoresizing) (0
     //        | UIViewAutoresizingFlexibleLeftMargin
     //        | UIViewAutoresizingFlexibleRightMargin
@@ -1115,20 +1092,20 @@ parentViewController:(UIViewController*)parentViewController
     //        | UIViewAutoresizingFlexibleBottomMargin)
 
     //Create Mask
-    CGPoint superCenter = CGPointMake(CGRectGetMidX(blurEffectView.bounds), CGRectGetMidY(blurEffectView.bounds)*0.85);
-    int size = floor(blurEffectView.bounds.size.width * 0.7);
+    CGPoint superCenter = CGPointMake(CGRectGetMidX(self.blurEffectView.bounds), CGRectGetMidY(self.blurEffectView.bounds)*0.78);
+    int size = floor(self.blurEffectView.bounds.size.width * 0.65);
     CGRect maskRect = CGRectMake(superCenter.x - size/2, superCenter.y - size/2, size, size);
     UIBezierPath *maskPath = [UIBezierPath bezierPathWithRect:maskRect];
     //invert path
-    [maskPath appendPath:[UIBezierPath bezierPathWithRect:blurEffectView.bounds]];
+    [maskPath appendPath:[UIBezierPath bezierPathWithRect:self.blurEffectView.bounds]];
     CAShapeLayer *fillLayer = [[CAShapeLayer alloc] init];
     fillLayer.fillRule = kCAFillRuleEvenOdd;
     fillLayer.fillColor = [UIColor greenColor].CGColor;
     fillLayer.path = maskPath.CGPath;
 
     // Add Blur Effect with Mask to view
-    blurEffectView.layer.mask = fillLayer;
-    [self.view addSubview:blurEffectView]; //if you have more UIViews, use an insertSubview API to place it where needed
+    self.blurEffectView.layer.mask = fillLayer;
+    [self.view addSubview:self.blurEffectView]; //if you have more UIViews, use an insertSubview API to place it where needed
 
     //Create default Font
     UIFont *font = [UIFont systemFontOfSize: 14.0f];
@@ -1224,6 +1201,30 @@ parentViewController:(UIViewController*)parentViewController
 
     [overlayView addSubview:navbar];
 
+    // Draw error Text
+    self.errorTextHeadline = [[UILabel alloc] init];
+    [self.errorTextHeadline setTextColor:[UIColor whiteColor]];
+    [self.errorTextHeadline setBackgroundColor:[UIColor clearColor]];
+    [self.errorTextHeadline setFont:[UIFont systemFontOfSize:20.0]];
+    [self.errorTextHeadline setText:@"Woopsie."];
+    [self.errorTextHeadline sizeToFit];
+    [self.errorTextHeadline setCenter:CGPointMake(superCenter.x, superCenter.y + size * 0.75 + margin)];
+    [self.errorTextHeadline setAlpha:0.0];
+    [self.view addSubview:self.errorTextHeadline];
+
+    self.errorText = [[UILabel alloc] initWithFrame:CGRectMake(20, 20, self.view.bounds.size.width*0.7, 300)];
+    [self.errorText setTextColor:[UIColor whiteColor]];
+    [self.errorText setBackgroundColor:[UIColor clearColor]];
+    [self.errorText setFont:[UIFont systemFontOfSize:16.0]];
+    [self.errorText setText:@"The code you've just scanned doesn't seem to be a valid Keyp QR code.\n\n Please try again or use a different one."];
+    self.errorText.lineBreakMode = NSLineBreakByWordWrapping;
+    self.errorText.numberOfLines = 0;
+    self.errorText.adjustsFontSizeToFitWidth = NO;
+    [self.errorText sizeToFit];
+    self.errorText.textAlignment = NSTextAlignmentCenter;
+    [self.errorText setCenter:CGPointMake(superCenter.x, self.errorTextHeadline.frame.origin.y + self.errorTextHeadline.frame.size.height + self.errorText.frame.size.height/2 + margin)];
+    [self.errorText setAlpha:0.0];
+    [self.view addSubview:self.errorText];
 
 //    UIToolbar* toolbar = [[UIToolbar alloc] init];
 //    toolbar.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleTopMargin;
