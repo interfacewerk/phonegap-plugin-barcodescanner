@@ -1035,7 +1035,7 @@ parentViewController:(UIViewController*)parentViewController
     [[UINavigationBar appearance] setTintColor:[UIColor whiteColor]]; // for titles, buttons, etc.
     [[UINavigationBar appearance] setTitleTextAttributes:@{NSForegroundColorAttributeName : [UIColor whiteColor]}];
 
-    UIBarButtonItem *backButton = [[[UIBarButtonItem alloc] initWithTitle:@"❮Back" style:UIBarButtonItemStylePlain target:self action:@selector(cancelButtonPressed:)] autorelease];
+    UIBarButtonItem *backButton = [[UIBarButtonItem alloc] initWithTitle:@"❮Back" style:UIBarButtonItemStylePlain target:self action:@selector(cancelButtonPressed:)];
     navItem.leftBarButtonItem = backButton;
     [navbar setItems:@[navItem]];
 
