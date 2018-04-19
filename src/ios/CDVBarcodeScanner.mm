@@ -850,6 +850,11 @@ parentViewController:(UIViewController*)parentViewController
     [super viewDidAppear:animated];
 }
 
+- (UIStatusBarStyle)preferredStatusBarStyle
+{
+    return UIStatusBarStyleLightContent;
+}
+
 //--------------------------------------------------------------------------
 - (void)startCapturing {
     self.processor.capturing = YES;
@@ -915,6 +920,7 @@ parentViewController:(UIViewController*)parentViewController
 
 //    self.view.backgroundColor = [UIColor clearColor];
 
+
     // Create Blur Effect
     UIBlurEffect *blurEffect = [UIBlurEffect effectWithStyle:UIBlurEffectStyleDark];
     self.blurEffectView = [[UIVisualEffectView alloc] initWithEffect:blurEffect];
@@ -948,7 +954,7 @@ parentViewController:(UIViewController*)parentViewController
     [self.view addSubview:self.blurEffectView]; //if you have more UIViews, use an insertSubview API to place it where needed
 
     //Create default Font
-    UIFont *font = [UIFont systemFontOfSize: 14.0f];
+    UIFont *font = [UIFont systemFontOfSize: 12.0f];
 
     // Create Lables
     // bottom
@@ -985,7 +991,7 @@ parentViewController:(UIViewController*)parentViewController
     [self.view addSubview:leftLabel];
 
     //Draw corners
-    double cornerMargin = margin * 2.0;
+    double cornerMargin = margin * 1.5;
     double cornerLength = 30.0;
     UIBezierPath *path = [UIBezierPath bezierPath];
 
@@ -1012,7 +1018,7 @@ parentViewController:(UIViewController*)parentViewController
     CAShapeLayer *shapeLayer = [CAShapeLayer layer];
     shapeLayer.path = [path CGPath];
     shapeLayer.strokeColor = [[UIColor whiteColor] CGColor];
-    shapeLayer.lineWidth = 3.0;
+    shapeLayer.lineWidth = 1.4;
     shapeLayer.fillColor = [[UIColor clearColor] CGColor];
     [self.view.layer addSublayer:shapeLayer];
 
@@ -1035,11 +1041,35 @@ parentViewController:(UIViewController*)parentViewController
     [[UINavigationBar appearance] setTintColor:[UIColor whiteColor]]; // for titles, buttons, etc.
     [[UINavigationBar appearance] setTitleTextAttributes:@{NSForegroundColorAttributeName : [UIColor whiteColor]}];
 
-    UIBarButtonItem *backButton = [[UIBarButtonItem alloc] initWithTitle:@"❮Back" style:UIBarButtonItemStylePlain target:self action:@selector(cancelButtonPressed:)];
+    UIBarButtonItem *backButton = [[UIBarButtonItem alloc] initWithTitle:@"Cancel" style:UIBarButtonItemStylePlain target:self action:@selector(cancelButtonPressed:)];
     navItem.leftBarButtonItem = backButton;
+
+//    UIButton * backButton = [UIButton buttonWithType:UIButtonTypeCustom];
+//    [backButton addTarget:self action:@selector(cancelButtonPressed:) forControlEvents:UIControlEventTouchUpInside];
+////    [backButton setFrame:FRAME_DEFINE
+//     [backButton setContentHorizontalAlignment:UIControlContentHorizontalAlignmentLeft];
+//     [backButton setExclusiveTouch:YES];
+////    CFURLRef soundFileURLRef  = CFBundleCopyResourceURL(CFBundleGetMainBundle(), CFSTR("CDVBarcodeScanner.bundle/beep"), CFSTR ("caf"), NULL);
+//    UIImage *image = [UIImage imageNamed:@"CDVBarcodeScanner.bundle/back.png"];
+//    [backButton setImage:[image _imageScaledToSize:CGSizeMake(69, 32) interpolationQuality:1] forState:UIControlStateNormal];
+//
+//     [backButton setTitle:@"Back" forState:UIControlStateNormal];
+//     [backButton setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
+//     UIBarButtonItem *backMenuBarButton = [[UIBarButtonItem alloc] initWithCustomView:backButton];
+//    navItem.leftBarButtonItem = backMenuBarButton;
+
+
     [navbar setItems:@[navItem]];
+    navbar.barStyle = UIBarStyleBlack;
 
     [overlayView addSubview:navbar];
+
+    // Set Crosshair
+    UIImageView *imageView = [[UIImageView alloc] initWithFrame:CGRectMake(superCenter.x, superCenter.y, size*0.15, size*0.15)];
+    [imageView setCenter:CGPointMake(superCenter.x, superCenter.y)];
+    imageView.image =  [UIImage imageNamed:@"CDVBarcodeScanner.bundle/crosshair.png"];
+    [self.view addSubview:imageView];
+
 
     // Draw error Text
     self.errorTextHeadline = [[UILabel alloc] init];
