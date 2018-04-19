@@ -1025,14 +1025,15 @@ parentViewController:(UIViewController*)parentViewController
 
     //Add Back Button
 
-    CGFloat topPadding = 0.0;
+    CGFloat topPadding = 20.0;
     CGFloat bottomPadding = 0.0;
     if (@available(iOS 11.0, *)) {
         UIWindow *window = UIApplication.sharedApplication.keyWindow;
         topPadding = window.safeAreaInsets.top;
         bottomPadding = window.safeAreaInsets.bottom;
     }
-    UINavigationBar* navbar = [[UINavigationBar alloc] initWithFrame:CGRectMake(0, topPadding, self.view.frame.size.width, 50)];
+    if(topPadding < 20) topPadding = 20.0;
+    UINavigationBar* navbar = [[UINavigationBar alloc] initWithFrame:CGRectMake(0, topPadding, self.view.frame.size.width, 1)];
     UINavigationItem* navItem = [[UINavigationItem alloc] initWithTitle:@"Scan Keyp QR"];
 
     [[UINavigationBar appearance] setBackgroundImage:[UIImage new] forBarMetrics:UIBarMetricsDefault];
